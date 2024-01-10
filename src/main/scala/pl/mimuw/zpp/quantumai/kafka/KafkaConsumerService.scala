@@ -1,35 +1,42 @@
 package pl.mimuw.zpp.quantumai.kafka
 
-import pl.mimuw.zpp.quantumai.kafka.domain.GradeRequest
+import pl.mimuw.zpp.quantumai.kafka.domain.{GradeRequest, GradeResponse}
 import zio._
-import zio.kafka.consumer.{Consumer, ConsumerSettings, Subscription}
+import zio.kafka.consumer.{Consumer, Subscription}
+import zio.kafka.producer.Producer
 import zio.kafka.serde.Serde
 
 trait KafkaConsumerService {
-  def run(): ZIO[Any, Throwable, Unit]
+  def consume(): ZIO[Producer with Consumer, Throwable, Unit]
 }
 
 object KafkaConsumerService {
-  def run(): ZIO[KafkaConsumerService, Throwable, Unit] =
-    ZIO.serviceWithZIO(_.run())
+  def consume(): ZIO[KafkaConsumerService with  Producer with  Consumer, Throwable, Unit] =
+    ZIO.serviceWithZIO[KafkaConsumerService](_.consume())
 }
 
-case class KafkaConsumerServiceImpl() extends KafkaConsumerService {
-  private val consumerLayer: ZLayer[Any, Throwable, Consumer] =
-    ZLayer.scoped(Consumer.make(ConsumerSettings(List("localhost:9092")).withGroupId("utm")))
-
-  override def run(): ZIO[Any, Throwable, Unit] = {
+case class KafkaConsumerServiceImpl(producerService: KafkaProducerService) extends KafkaConsumerService {
+  override def consume(): ZIO[Producer with Consumer, Throwable, Unit] = {
     Consumer
       .plainStream(Subscription.topics("grade-requests"), Serde.string, GradeRequest.value)
-      .map(record => println(s"Received: ${record.record.value()}"))
+      .mapZIO(record => {
+        for {
+          _ <- ZIO.logInfo(s"Received: ${record.record.value()}")
+          gr = GradeResponse("xd", success = true, "xd", 1L)
+          _ <- producerService.produce(gr)
+        } yield ()
+      })
       .runDrain
-      .provideSomeLayer(consumerLayer)
   }
 }
 
 object KafkaConsumerServiceImpl {
-  val layer: ZLayer[Any, Throwable, KafkaConsumerService] = {
-    ZLayer.succeed(KafkaConsumerServiceImpl())
+  val layer: ZLayer[KafkaProducerService with Producer with Consumer, Throwable, KafkaConsumerService] = {
+    ZLayer {
+      for {
+        producerService <- ZIO.service[KafkaProducerService]
+      } yield KafkaConsumerServiceImpl(producerService)
+    }
   }
 }
 
