@@ -1,0 +1,7 @@
+docker-compose.yml
+.bsp
+.idea
+project/target
+project/project
+target
+.DS_Store
