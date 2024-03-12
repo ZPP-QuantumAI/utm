@@ -1,6 +1,7 @@
 package pl.mimuw.zpp.quantumai.kafka
 
-import pl.mimuw.zpp.quantumai.kafka.domain.{GradeRequest, GradeResponse}
+import pl.mimuw.zpp.quantumai.grade.GradingService
+import pl.mimuw.zpp.quantumai.kafka.domain.GradeRequest
 import zio._
 import zio.kafka.consumer.{Consumer, Subscription}
 import zio.kafka.producer.Producer
@@ -11,19 +12,18 @@ trait KafkaConsumerService {
 }
 
 object KafkaConsumerService {
-  def consume(): ZIO[KafkaConsumerService with  Producer with  Consumer, Throwable, Unit] =
+  def consume(): ZIO[KafkaConsumerService with Producer with Consumer, Throwable, Unit] =
     ZIO.serviceWithZIO[KafkaConsumerService](_.consume())
 }
 
-case class KafkaConsumerServiceImpl(producerService: KafkaProducerService) extends KafkaConsumerService {
+case class KafkaConsumerServiceImpl(gradingService: GradingService) extends KafkaConsumerService {
   override def consume(): ZIO[Producer with Consumer, Throwable, Unit] = {
     Consumer
       .plainStream(Subscription.topics("grade-requests"), Serde.string, GradeRequest.value)
       .mapZIO(record => {
         for {
           _ <- ZIO.logInfo(s"Received: ${record.record.value()}")
-          gr = GradeResponse("xd", success = true, "xd", 1L)
-          _ <- producerService.produce(gr)
+          _ <- gradingService.gradeRequest(record.record.value())
         } yield ()
       })
       .runDrain
@@ -31,12 +31,15 @@ case class KafkaConsumerServiceImpl(producerService: KafkaProducerService) exten
 }
 
 object KafkaConsumerServiceImpl {
-  val layer: ZLayer[KafkaProducerService with Producer with Consumer, Throwable, KafkaConsumerService] = {
+  val layer: ZLayer[
+    GradingService,
+    Throwable,
+    KafkaConsumerService
+  ] = {
     ZLayer {
       for {
-        producerService <- ZIO.service[KafkaProducerService]
-      } yield KafkaConsumerServiceImpl(producerService)
+        gradingService <- ZIO.service[GradingService]
+      } yield KafkaConsumerServiceImpl(gradingService)
     }
   }
 }
-

@@ -1,26 +1,46 @@
 package pl.mimuw.zpp.quantumai
 
+import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
+import org.mongodb.scala.MongoClient
+import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
+import org.mongodb.scala.bson.codecs.Macros._
+import pl.mimuw.zpp.quantumai.grade.GradingServiceImpl
 import pl.mimuw.zpp.quantumai.kafka._
+import pl.mimuw.zpp.quantumai.repository.dto.{File, Graph, Node}
+import pl.mimuw.zpp.quantumai.repository.{FileRepositoryServiceImpl, GraphRepositoryServiceImpl}
 import zio._
 import zio.kafka.consumer.{Consumer, ConsumerSettings}
 import zio.kafka.producer.{Producer, ProducerSettings}
 
 object Main extends ZIOAppDefault {
+  private val kafkaConsumer = Consumer.make(ConsumerSettings(List("localhost:9092")).withGroupId("utm"))
+  private val kafkaProducer = Producer.make(ProducerSettings(List("localhost:9092")))
 
-  private val consumerLayer: ZLayer[Any, Throwable, Consumer] =
-    ZLayer.scoped(Consumer.make(ConsumerSettings(List("localhost:9092")).withGroupId("utm")))
-
-  private val producerLayer: ZLayer[Any, Throwable, Producer] =
-    ZLayer.scoped(Producer.make(ProducerSettings(List("localhost:9092"))))
-
-  private val app =
-   KafkaConsumerService.consume()
+  private val mongoClient       = MongoClient("mongodb://localhost:27017")
+  private val fileCodecRegistry = fromRegistries(fromProviders(classOf[File]), DEFAULT_CODEC_REGISTRY)
+  private val graphCodecRegistry =
+    fromRegistries(fromProviders(classOf[Graph], classOf[Node]), DEFAULT_CODEC_REGISTRY)
+  private val filesCollection = mongoClient
+    .getDatabase("zpp")
+    .withCodecRegistry(fileCodecRegistry)
+    .getCollection[File]("files")
+  private val graphCollection = mongoClient
+    .getDatabase("zpp")
+    .withCodecRegistry(graphCodecRegistry)
+    .getCollection[Graph]("graphs")
 
   override def run: ZIO[Any, Throwable, Unit] =
-    app.provide(
-      KafkaConsumerServiceImpl.layer,
-      KafkaProducerServiceImpl.layer,
-      consumerLayer,
-      producerLayer
-    )
+    KafkaConsumerService
+      .consume()
+      .provide(
+        GradingServiceImpl.layer,
+        FileRepositoryServiceImpl.layer,
+        GraphRepositoryServiceImpl.layer,
+        KafkaConsumerServiceImpl.layer,
+        KafkaProducerServiceImpl.layer,
+        ZLayer.scoped(ZIO.succeed(filesCollection)),
+        ZLayer.scoped(ZIO.succeed(graphCollection)),
+        ZLayer.scoped(kafkaConsumer),
+        ZLayer.scoped(kafkaProducer)
+      )
 }
