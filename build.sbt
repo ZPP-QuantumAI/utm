@@ -6,12 +6,10 @@ lazy val root = (project in file("."))
   .settings(
     name := "utm",
     libraryDependencies ++= Seq(
-      "dev.zio"           %% "zio"                       % "2.0.21",
-      "dev.zio"           %% "zio-kafka"                 % "2.7.2",
-      "dev.zio"           %% "zio-json"                  % "0.6.2",
-      "org.mongodb.scala" %% "mongo-scala-driver"        % "4.11.1",
-      "org.testcontainers" % "testcontainers"            % "1.19.4",
-      "com.dimafeng"      %% "testcontainers-scala-core" % "0.41.3" % "it"
+      "dev.zio"           %% "zio"                % "2.0.21",
+      "dev.zio"           %% "zio-kafka"          % "2.7.2",
+      "dev.zio"           %% "zio-json"           % "0.6.2",
+      "org.mongodb.scala" %% "mongo-scala-driver" % "4.11.1"
     ),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
