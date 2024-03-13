@@ -19,7 +19,7 @@ object KafkaConsumerService {
 case class KafkaConsumerServiceImpl(gradingService: GradingService) extends KafkaConsumerService {
   override def consume(): ZIO[Producer with Consumer, Throwable, Unit] = {
     Consumer
-      .plainStream(Subscription.topics("grade-requests"), Serde.string, GradeRequest.value)
+      .plainStream(Subscription.topics("grade-request"), Serde.string, GradeRequest.value)
       .mapZIO(record => {
         for {
           _ <- ZIO.logInfo(s"Received: ${record.record.value()}")

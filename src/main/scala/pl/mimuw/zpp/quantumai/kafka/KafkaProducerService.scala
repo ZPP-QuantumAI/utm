@@ -14,7 +14,7 @@ case class KafkaProducerServiceImpl() extends KafkaProducerService {
   override def produce(gradeResponse: GradeResponse): RIO[Producer, RecordMetadata] = {
     Producer
       .produce(
-        "grade-responses",
+        "run-result",
         gradeResponse.gradeId,
         gradeResponse,
         Serde.string,
