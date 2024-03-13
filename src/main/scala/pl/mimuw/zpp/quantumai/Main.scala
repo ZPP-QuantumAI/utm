@@ -13,21 +13,22 @@ import zio.kafka.consumer.{Consumer, ConsumerSettings}
 import zio.kafka.producer.{Producer, ProducerSettings}
 
 object Main extends ZIOAppDefault {
-  private val kafkaConsumer = Consumer.make(ConsumerSettings(List("localhost:9092")).withGroupId("utm"))
-  private val kafkaProducer = Producer.make(ProducerSettings(List("localhost:9092")))
+  private val kafkaConsumer =
+    Consumer.make(ConsumerSettings(List("localhost:9092", "kafka-service:9092")).withGroupId("utm"))
+  private val kafkaProducer = Producer.make(ProducerSettings(List("localhost:9092", "kafka-service:9092")))
 
-  private val mongoClient       = MongoClient("mongodb://localhost:27017")
+  private val mongoClient       = MongoClient("mongodb://mongodb:27017")
   private val fileCodecRegistry = fromRegistries(fromProviders(classOf[File]), DEFAULT_CODEC_REGISTRY)
   private val graphCodecRegistry =
     fromRegistries(fromProviders(classOf[Graph], classOf[Node]), DEFAULT_CODEC_REGISTRY)
   private val filesCollection = mongoClient
-    .getDatabase("zpp")
+    .getDatabase("test")
     .withCodecRegistry(fileCodecRegistry)
-    .getCollection[File]("files")
+    .getCollection[File]("solutionFile")
   private val graphCollection = mongoClient
-    .getDatabase("zpp")
+    .getDatabase("test")
     .withCodecRegistry(graphCodecRegistry)
-    .getCollection[Graph]("graphs")
+    .getCollection[Graph]("euclideanGraph")
 
   override def run: ZIO[Any, Throwable, Unit] =
     KafkaConsumerService
