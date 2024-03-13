@@ -30,14 +30,16 @@ case class GradingServiceImpl(
         val start        = Timer.currentTimeMillis()
 
         val gradeZio = for {
+          _   <- ZIO.logInfo(s"Running the solution for graph $graph in $gradeID")
           res <- processOne(pythonScript, toInput(graph))
           end <- Clock.currentTime(TimeUnit.MILLISECONDS)
           _   <- producerService.produce(GradeResponse(gradeID, res._1, res._2, end - start))
         } yield ()
 
         gradeZio.catchAll { e =>
-          val end = Timer.currentTimeMillis()
-          producerService.produce(GradeResponse(gradeID, success = false, e.getMessage, end - start))
+          producerService.produce(
+            GradeResponse(gradeID, success = false, e.getMessage, Timer.currentTimeMillis() - start)
+          )
         }
       }
     } yield ()

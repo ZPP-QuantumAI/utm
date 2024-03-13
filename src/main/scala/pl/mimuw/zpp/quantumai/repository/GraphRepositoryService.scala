@@ -5,10 +5,6 @@ import org.mongodb.scala.model.Filters.in
 import pl.mimuw.zpp.quantumai.repository.dto.Graph
 import zio.{ZIO, ZLayer}
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
-
 trait GraphRepositoryService {
   def readGraphs(graphIds: Seq[String]): ZIO[Any, Throwable, Seq[Graph]]
 }
