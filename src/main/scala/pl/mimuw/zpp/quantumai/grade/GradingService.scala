@@ -65,7 +65,7 @@ case class GradingServiceImpl(
     for {
       process <- ZIO.succeed(
         (Process(s"""echo "$input"""") #| Process(s"python3 $solutionPath/run.py")).run(
-          ProcessLogger(line => output.append(line).append("\n"), line => error.append(line).append("\n"))
+          ProcessLogger(line => output.append(line), line => error.append(line).append("\n"))
         )
       )
     } yield (process.exitValue() == 0, output.toString() + error.toString())
