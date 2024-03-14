@@ -3,6 +3,10 @@ ThisBuild / organization := "pl.mimuw.zpp.quantumai"
 
 lazy val root = (project in file("."))
   .settings(
+    assembly / assemblyMergeStrategy := {
+      case PathList("META-INF", _*) => MergeStrategy.discard
+      case _                        => MergeStrategy.first
+    },
     name := "utm",
     libraryDependencies ++= Seq(
       "dev.zio"           %% "zio"                % "2.0.21",
