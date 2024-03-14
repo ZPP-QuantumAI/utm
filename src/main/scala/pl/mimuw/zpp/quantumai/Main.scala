@@ -17,7 +17,7 @@ object Main extends ZIOAppDefault {
     Consumer.make(ConsumerSettings(List("localhost:9092", "kafka-service:9092")).withGroupId("utm"))
   private val kafkaProducer = Producer.make(ProducerSettings(List("localhost:9092", "kafka-service:9092")))
 
-  private val mongoClient       = MongoClient("mongodb://localhost:27017")
+  private val mongoClient       = MongoClient("mongodb://mongodb:27017")
   private val fileCodecRegistry = fromRegistries(fromProviders(classOf[File]), DEFAULT_CODEC_REGISTRY)
   private val graphCodecRegistry =
     fromRegistries(fromProviders(classOf[Graph], classOf[Node]), DEFAULT_CODEC_REGISTRY)
