@@ -3,12 +3,14 @@ package pl.mimuw.zpp.quantumai.grade
 import pl.mimuw.zpp.quantumai.kafka.KafkaProducerService
 import pl.mimuw.zpp.quantumai.kafka.domain.{GradeRequest, GradeResponse}
 import pl.mimuw.zpp.quantumai.repository.dto.Graph.toInput
+import pl.mimuw.zpp.quantumai.repository.dto.{File => FileDto}
 import pl.mimuw.zpp.quantumai.repository.{FileRepositoryService, GraphRepositoryService}
 import zio._
 import zio.kafka.producer.Producer
 
+import java.io.{File, FileOutputStream}
 import java.lang.{System => Timer}
-import java.util.Base64
+import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 import scala.sys.process._
 
@@ -25,13 +27,14 @@ case class GradingServiceImpl(
     for {
       file   <- fileRepositoryService.readFile(gradeRequest.solutionId)
       graphs <- graphRepositoryService.readGraphs(gradeRequest.requests.map(singleRequest => singleRequest.graphId))
+      _      <- ZIO.logInfo(s"file: ${file._id}, graphs: ${graphs.head.name}")
       _ <- ZIO.foreachParDiscard(graphs.zip(gradeRequest.requests.map(x => x.gradeId))) { case (graph, gradeID) =>
-        val pythonScript = new String(Base64.getDecoder.decode(file.data))
+        val solutionPath = decodeZip(file)
         val start        = Timer.currentTimeMillis()
 
         val gradeZio = for {
           _   <- ZIO.logInfo(s"Running the solution for graph $graph in $gradeID")
-          res <- processOne(pythonScript, toInput(graph))
+          res <- processOne(solutionPath, toInput(graph))
           end <- Clock.currentTime(TimeUnit.MILLISECONDS)
           _   <- producerService.produce(GradeResponse(gradeID, res._1, res._2, end - start))
         } yield ()
@@ -45,12 +48,24 @@ case class GradingServiceImpl(
     } yield ()
   }
 
-  private def processOne(pythonScript: String, input: String): ZIO[Any, Throwable, (Boolean, String)] = {
+  private def decodeZip(file: FileDto): Path = {
+    val zippedFile      = File.createTempFile(file._id, ".zip")
+    val outputDirectory = Files.createTempDirectory(s"solution-${file._id}")
+    val fos             = new FileOutputStream(zippedFile)
+    fos.write(file.data.getData)
+    fos.close()
+
+    Seq("unzip", zippedFile.getPath, "-d", outputDirectory.toString).run()
+
+    outputDirectory
+  }
+
+  private def processOne(solutionPath: Path, input: String): ZIO[Any, Throwable, (Boolean, String)] = {
     val output = new StringBuilder
     val error  = new StringBuilder
     for {
       process <- ZIO.succeed(
-        Process(s"python3 -c '$pythonScript' $input").run(
+        (Process(s"""echo "$input"""") #| Process(s"python3 $solutionPath/run.py")).run(
           ProcessLogger(line => output.append(line).append("\n"), line => error.append(line).append("\n"))
         )
       )

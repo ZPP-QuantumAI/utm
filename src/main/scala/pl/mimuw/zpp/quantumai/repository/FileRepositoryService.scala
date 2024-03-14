@@ -12,7 +12,7 @@ trait FileRepositoryService {
 case class FileRepositoryServiceImpl(collection: MongoCollection[File]) extends FileRepositoryService {
   override def readFile(solutionId: String): ZIO[Any, Throwable, File] = {
     ZIO.fromFuture[File] { _ =>
-      collection.find(equal("solutionId", solutionId)).first().toFuture()
+      collection.find(equal("_id", solutionId)).first().toFuture()
     }
   }
 }

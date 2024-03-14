@@ -1,8 +1,8 @@
 package pl.mimuw.zpp.quantumai.repository.dto
 
-import org.mongodb.scala.bson.ObjectId
+import org.bson.types.Binary
 
-final case class File(_id: String, data: String)
+final case class File(_id: String, data: Binary)
 
 object File {
   def apply(solutionId: String, data: String): File =

@@ -12,7 +12,7 @@ trait GraphRepositoryService {
 case class GraphRepositoryServiceImpl(collection: MongoCollection[Graph]) extends GraphRepositoryService {
   def readGraphs(graphIds: Seq[String]): ZIO[Any, Throwable, Seq[Graph]] = {
     ZIO.fromFuture[Seq[Graph]] { _ =>
-      collection.find(in("id", graphIds: _*)).toFuture()
+      collection.find(in("_id", graphIds: _*)).toFuture()
     }
   }
 }
