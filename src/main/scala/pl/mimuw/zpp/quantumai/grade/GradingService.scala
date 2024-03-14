@@ -1,7 +1,7 @@
 package pl.mimuw.zpp.quantumai.grade
 
 import pl.mimuw.zpp.quantumai.kafka.KafkaProducerService
-import pl.mimuw.zpp.quantumai.kafka.domain.{GradeRequest, GradeResponse}
+import pl.mimuw.zpp.quantumai.kafka.domain.{GradeRequest, GradeResponse, SingleGradeRequest}
 import pl.mimuw.zpp.quantumai.repository.dto.Graph.toInput
 import pl.mimuw.zpp.quantumai.repository.dto.{File => FileDto}
 import pl.mimuw.zpp.quantumai.repository.{FileRepositoryService, GraphRepositoryService}
@@ -27,10 +27,12 @@ case class GradingServiceImpl(
     for {
       file         <- fileRepositoryService.readFile(gradeRequest.solutionId)
       solutionPath <- decodeZip(file)
-      graphs <- graphRepositoryService.readGraphs(gradeRequest.requests.map(singleRequest => singleRequest.graphId))
+      graphMap = gradeRequest.requests.map(sgr => (sgr.graphId, sgr.gradeId)).toMap
+      graphs <- graphRepositoryService.readGraphs(graphMap.keySet.toList)
       _      <- ZIO.logInfo(s"file: ${file._id}, graphs: ${graphs.head.name}")
-      _ <- ZIO.foreachParDiscard(graphs.zip(gradeRequest.requests.map(x => x.gradeId))) { case (graph, gradeID) =>
-        val start = Timer.currentTimeMillis()
+      _ <- ZIO.foreachParDiscard(graphs) { graph =>
+        val gradeID = graphMap(graph._id)
+        val start   = Timer.currentTimeMillis()
         val gradeZio = for {
           _   <- ZIO.logInfo(s"Running the solution for graph $graph in $gradeID")
           res <- processOne(solutionPath, toInput(graph))
