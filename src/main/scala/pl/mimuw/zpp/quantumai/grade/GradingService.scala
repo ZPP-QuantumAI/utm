@@ -25,13 +25,12 @@ case class GradingServiceImpl(
 ) extends GradingService {
   override def gradeRequest(gradeRequest: GradeRequest): ZIO[Producer, Throwable, Unit] = {
     for {
-      file   <- fileRepositoryService.readFile(gradeRequest.solutionId)
+      file         <- fileRepositoryService.readFile(gradeRequest.solutionId)
+      solutionPath <- decodeZip(file)
       graphs <- graphRepositoryService.readGraphs(gradeRequest.requests.map(singleRequest => singleRequest.graphId))
       _      <- ZIO.logInfo(s"file: ${file._id}, graphs: ${graphs.head.name}")
       _ <- ZIO.foreachParDiscard(graphs.zip(gradeRequest.requests.map(x => x.gradeId))) { case (graph, gradeID) =>
-        val solutionPath = decodeZip(file)
-        val start        = Timer.currentTimeMillis()
-
+        val start = Timer.currentTimeMillis()
         val gradeZio = for {
           _   <- ZIO.logInfo(s"Running the solution for graph $graph in $gradeID")
           res <- processOne(solutionPath, toInput(graph))
@@ -48,7 +47,7 @@ case class GradingServiceImpl(
     } yield ()
   }
 
-  private def decodeZip(file: FileDto): Path = {
+  private def decodeZip(file: FileDto): Task[Path] = {
     val zippedFile      = File.createTempFile(file._id, ".zip")
     val outputDirectory = Files.createTempDirectory(s"solution-${file._id}")
     val fos             = new FileOutputStream(zippedFile)
@@ -57,7 +56,7 @@ case class GradingServiceImpl(
 
     Seq("unzip", zippedFile.getPath, "-d", outputDirectory.toString).run()
 
-    outputDirectory
+    ZIO.succeed(outputDirectory)
   }
 
   private def processOne(solutionPath: Path, input: String): ZIO[Any, Throwable, (Boolean, String)] = {

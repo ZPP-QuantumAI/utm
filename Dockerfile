@@ -13,6 +13,7 @@ WORKDIR /app
 COPY --from=builder /app/target/scala-2.13/utm-assembly-0.1.0-SNAPSHOT.jar ./your-app.jar
 
 RUN apt update && \
+    apt install --yes --assume-yes python3 \
     apt install --yes --assume-yes unzip
 
 EXPOSE 8080
