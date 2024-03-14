@@ -1,9 +1,13 @@
 ThisBuild / scalaVersion := "2.13.12"
-ThisBuild / version      := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "pl.mimuw.zpp.quantumai"
 
 lazy val root = (project in file("."))
   .settings(
+    assembly / mainClass := Some("pl.mimuw.zpp.quantumai.Main"),
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", _*) => MergeStrategy.discard
+      case _                        => MergeStrategy.first
+    },
     name := "utm",
     libraryDependencies ++= Seq(
       "dev.zio"           %% "zio"                % "2.0.21",

@@ -4,4 +4,8 @@ WORKDIR /app
 
 COPY . .
 
-CMD ["sbt", "run"]
+RUN sbt assembly
+
+COPY /target/scala-2.13/*.jar app.jar
+
+CMD ["java", "-jar", "app.jar"]
