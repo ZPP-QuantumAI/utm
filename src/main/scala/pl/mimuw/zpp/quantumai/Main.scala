@@ -12,12 +12,17 @@ import zio._
 import zio.kafka.consumer.{Consumer, ConsumerSettings}
 import zio.kafka.producer.{Producer, ProducerSettings}
 
+import scala.concurrent.Await
+import scala.sys.env
+
 object Main extends ZIOAppDefault {
   private val kafkaConsumer =
     Consumer.make(ConsumerSettings(List("localhost:9092", "kafka-service:9092")).withGroupId("utm"))
   private val kafkaProducer = Producer.make(ProducerSettings(List("localhost:9092", "kafka-service:9092")))
 
-  private val mongoClient       = MongoClient("mongodb://mongodb:27017")
+  val username = env.getOrElse("MONGO_USERNAME", "")
+  val password = env.getOrElse("MONGO_PASSWORD", "")
+  private val mongoClient       = MongoClient(s"mongodb://${username}:${password}@57.129.21.61:27017")
   private val fileCodecRegistry = fromRegistries(fromProviders(classOf[File]), DEFAULT_CODEC_REGISTRY)
   private val graphCodecRegistry =
     fromRegistries(fromProviders(classOf[Graph], classOf[Node]), DEFAULT_CODEC_REGISTRY)
