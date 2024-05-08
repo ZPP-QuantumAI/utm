@@ -66,7 +66,7 @@ case class GradingServiceImpl(
     val error  = new StringBuilder
     for {
       process <- ZIO.succeed(
-        (Process("pip3 install -r requirements.txt") #&& Process(s"""echo "$input"""") #| Process(
+        (Process("pip3 install -r requirements.txt") #|| Process(s"""echo "$input"""") #| Process(
           s"timeout 300 python3 $solutionPath/run.py"
         )).run(
           ProcessLogger(line => output.append(line), line => error.append(line).append("\n"))
