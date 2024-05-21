@@ -15,6 +15,7 @@ trait FileRepositoryService {
 case class FileRepositoryServiceImpl(collection: GridFSBucket) extends FileRepositoryService {
   override def readFile(solutionId: String): ZIO[Any, Throwable, File] = {
     ZIO.fromFuture[File] { _ =>
+      println(solutionId)
       collection.downloadToObservable(solutionId).head().map(bb => File(solutionId, bb))
     }
   }
