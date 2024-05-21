@@ -1,6 +1,5 @@
 package pl.mimuw.zpp.quantumai.repository
 
-import org.apache.kafka.common.serialization.Serdes.ByteBuffer
 import org.mongodb.scala.bson.ObjectId
 import org.mongodb.scala.{MongoCollection, ObservableFuture}
 import org.mongodb.scala.gridfs.{GridFSBucket, GridFSFindObservable}
@@ -19,22 +18,27 @@ case class FileRepositoryServiceImpl(collection: GridFSBucket) extends FileRepos
   override def readFile(solutionId: String): ZIO[Any, Throwable, File] = {
     ZIO.fromFuture[File] { _ =>
       println(solutionId)
-      collection.downloadToObservable(new ObjectId(solutionId)).toFuture().map(bb => File(solutionId, combineByteBuffers(bb)))
+      collection
+        .downloadToObservable(new ObjectId(solutionId))
+        .toFuture()
+        .map(bb => File(solutionId, combineByteBuffers(bb)))
+    }
+  }
+
+  private def combineByteBuffers(buffers: Seq[ByteBuffer]): ByteBuffer = {
+    val totalSize = buffers.map(_.remaining()).sum
+    val combinedBuffer = ByteBuffer.allocate(totalSize)
+
+    buffers.foreach { buffer =>
+      combinedBuffer.put(buffer.duplicate())
+    }
+
+    combinedBuffer.flip()
+
+    combinedBuffer
   }
 }
 
-def combineByteBuffers(buffers: Seq[ByteBuffer]): ByteBuffer = {
-  val totalSize = buffers.map(_.remaining()).sum
-  val combinedBuffer = ByteBuffer.allocate(totalSize)
-
-  buffers.foreach { buffer =>
-    combinedBuffer.put(buffer.duplicate())
-  }
-
-  combinedBuffer.flip()
-
-  combinedBuffer
-}
 object FileRepositoryServiceImpl {
   val layer: ZLayer[GridFSBucket, Nothing, FileRepositoryService] = {
     ZLayer {
