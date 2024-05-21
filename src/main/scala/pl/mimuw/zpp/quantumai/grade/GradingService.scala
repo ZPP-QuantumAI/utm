@@ -53,7 +53,7 @@ case class GradingServiceImpl(
     val zippedFile      = File.createTempFile(file._id, ".zip")
     val outputDirectory = Files.createTempDirectory(s"solution-${file._id}")
     val fos             = new FileOutputStream(zippedFile)
-    fos.write(file.data.getData)
+    fos.write(file.data.array())
     fos.close()
 
     Seq("unzip", zippedFile.getPath, "-d", outputDirectory.toString).run()

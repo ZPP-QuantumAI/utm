@@ -4,6 +4,7 @@ import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistr
 import org.mongodb.scala.MongoClient
 import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.bson.codecs.Macros._
+import org.mongodb.scala.gridfs.GridFSBucket
 import pl.mimuw.zpp.quantumai.grade.GradingServiceImpl
 import pl.mimuw.zpp.quantumai.kafka._
 import pl.mimuw.zpp.quantumai.repository.dto.{File, Graph, Node}
@@ -26,10 +27,7 @@ object Main extends ZIOAppDefault {
   private val fileCodecRegistry = fromRegistries(fromProviders(classOf[File]), DEFAULT_CODEC_REGISTRY)
   private val graphCodecRegistry =
     fromRegistries(fromProviders(classOf[Graph], classOf[Node]), DEFAULT_CODEC_REGISTRY)
-  private val filesCollection = mongoClient
-    .getDatabase("test")
-    .withCodecRegistry(fileCodecRegistry)
-    .getCollection[File]("solutionFile")
+  private val filesCollection = GridFSBucket(mongoClient.getDatabase("test"))
   private val graphCollection = mongoClient
     .getDatabase("test")
     .withCodecRegistry(graphCodecRegistry)

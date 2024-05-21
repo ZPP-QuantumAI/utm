@@ -1,27 +1,30 @@
 package pl.mimuw.zpp.quantumai.repository
 
-import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.{MongoCollection, ObservableFuture}
+import org.mongodb.scala.gridfs.{GridFSBucket, GridFSFindObservable}
 import org.mongodb.scala.model.Filters.equal
 import pl.mimuw.zpp.quantumai.repository.dto.File
 import zio.{ZIO, ZLayer}
+
+import scala.concurrent.ExecutionContext.Implicits.global
 
 trait FileRepositoryService {
   def readFile(solutionId: String): ZIO[Any, Throwable, File]
 }
 
-case class FileRepositoryServiceImpl(collection: MongoCollection[File]) extends FileRepositoryService {
+case class FileRepositoryServiceImpl(collection: GridFSBucket) extends FileRepositoryService {
   override def readFile(solutionId: String): ZIO[Any, Throwable, File] = {
     ZIO.fromFuture[File] { _ =>
-      collection.find(equal("_id", solutionId)).first().toFuture()
+      collection.downloadToObservable(solutionId).head().map(bb => File(solutionId, bb))
     }
   }
 }
 
 object FileRepositoryServiceImpl {
-  val layer: ZLayer[MongoCollection[File], Nothing, FileRepositoryService] = {
+  val layer: ZLayer[GridFSBucket, Nothing, FileRepositoryService] = {
     ZLayer {
       for {
-        mongoClient <- ZIO.service[MongoCollection[File]]
+        mongoClient <- ZIO.service[GridFSBucket]
       } yield FileRepositoryServiceImpl(mongoClient)
     }
   }
