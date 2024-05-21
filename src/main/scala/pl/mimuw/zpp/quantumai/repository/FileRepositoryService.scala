@@ -1,5 +1,6 @@
 package pl.mimuw.zpp.quantumai.repository
 
+import org.mongodb.scala.bson.ObjectId
 import org.mongodb.scala.{MongoCollection, ObservableFuture}
 import org.mongodb.scala.gridfs.{GridFSBucket, GridFSFindObservable}
 import org.mongodb.scala.model.Filters.equal
@@ -16,7 +17,7 @@ case class FileRepositoryServiceImpl(collection: GridFSBucket) extends FileRepos
   override def readFile(solutionId: String): ZIO[Any, Throwable, File] = {
     ZIO.fromFuture[File] { _ =>
       println(solutionId)
-      collection.downloadToObservable(solutionId).head().map(bb => File(solutionId, bb))
+      collection.downloadToObservable(new ObjectId(solutionId)).head().map(bb => File(solutionId, bb))
     }
   }
 }
