@@ -23,7 +23,7 @@ object Main extends ZIOAppDefault {
 
   val username = env.getOrElse("MONGO_USERNAME", "")
   val password = env.getOrElse("MONGO_PASSWORD", "")
-  private val mongoClient       = MongoClient(s"mongodb://${username}:${password}@mongodb:27017")
+  private val mongoClient       = MongoClient(s"mongodb://${username}:${password}@57.129.21.96:27017")
   private val fileCodecRegistry = fromRegistries(fromProviders(classOf[File]), DEFAULT_CODEC_REGISTRY)
   private val graphCodecRegistry =
     fromRegistries(fromProviders(classOf[Graph], classOf[Node]), DEFAULT_CODEC_REGISTRY)
