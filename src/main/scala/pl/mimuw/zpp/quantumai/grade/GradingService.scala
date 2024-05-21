@@ -25,8 +25,8 @@ case class GradingServiceImpl(
 ) extends GradingService {
   override def gradeRequest(gradeRequest: GradeRequest): ZIO[Producer, Throwable, Unit] = {
     for {
-      file         <- fileRepositoryService.readFile(gradeRequest.solutionId)
-      solutionPath <- decodeZip(file)
+      file <- fileRepositoryService.readFile(gradeRequest.solutionId)
+      _    <- decodeZip(file)
       graphMap = gradeRequest.requests.map(sgr => (sgr.graphId, sgr.gradeId)).toMap
       graphs <- graphRepositoryService.readGraphs(graphMap.keySet.toList)
       _      <- ZIO.logInfo(s"file: ${file._id}, graphs: ${graphs.head.name}")
@@ -35,7 +35,7 @@ case class GradingServiceImpl(
         val start   = Timer.currentTimeMillis()
         val gradeZio = for {
           _   <- ZIO.logInfo(s"Running the solution for graph $graph in $gradeID")
-          res <- processOne(solutionPath, toInput(graph))
+          res <- processOne(toInput(graph))
           end <- Clock.currentTime(TimeUnit.MILLISECONDS)
           _   <- producerService.produce(GradeResponse(gradeID, res._1, res._2, end - start))
         } yield ()
@@ -49,19 +49,18 @@ case class GradingServiceImpl(
     } yield ()
   }
 
-  private def decodeZip(file: FileDto): Task[Path] = {
-    val zippedFile      = File.createTempFile(file._id, ".zip")
-    val outputDirectory = Files.createTempDirectory("")
-    val fos             = new FileOutputStream(zippedFile)
+  private def decodeZip(file: FileDto): Task[Unit] = {
+    val zippedFile = File.createTempFile(file._id, ".zip")
+    val fos        = new FileOutputStream(zippedFile)
     fos.write(file.data.array())
     fos.close()
 
-    Seq("unzip", zippedFile.getPath, "-d", outputDirectory.toString).run()
+    Seq("unzip", zippedFile.getPath).run()
 
-    ZIO.succeed(outputDirectory)
+    ZIO.succeed()
   }
 
-  private def processOne(solutionPath: Path, input: String): ZIO[Any, Throwable, (Boolean, String)] = {
+  private def processOne(input: String): ZIO[Any, Throwable, (Boolean, String)] = {
     val output = new StringBuilder
     val error  = new StringBuilder
     for {
