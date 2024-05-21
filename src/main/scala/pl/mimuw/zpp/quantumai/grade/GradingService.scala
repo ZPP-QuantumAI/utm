@@ -30,19 +30,18 @@ case class GradingServiceImpl(
       graphMap = gradeRequest.requests.map(sgr => (sgr.graphId, sgr.gradeId)).toMap
       graphs <- graphRepositoryService.readGraphs(graphMap.keySet.toList)
       _      <- ZIO.logInfo(s"file: ${file._id}, graphs: ${graphs.head.name}")
-      _ <- ZIO.foreachParDiscard(graphs) { graph =>
+      _ <- ZIO.foreachDiscard(graphs) { graph =>
         val gradeID = graphMap(graph._id)
-        val start   = Timer.currentTimeMillis()
         val gradeZio = for {
           _   <- ZIO.logInfo(s"Running the solution for graph $graph in $gradeID")
           res <- processOne(toInput(graph))
           end <- Clock.currentTime(TimeUnit.MILLISECONDS)
-          _   <- producerService.produce(GradeResponse(gradeID, res._1, res._2, end - start))
+          _   <- producerService.produce(GradeResponse(gradeID, res._1, res._2, end - res._3))
         } yield ()
 
         gradeZio.catchAll { e =>
           producerService.produce(
-            GradeResponse(gradeID, success = false, e.getMessage, Timer.currentTimeMillis() - start)
+            GradeResponse(gradeID, success = false, e.getMessage, 0L)
           )
         }
       }
@@ -60,11 +59,12 @@ case class GradingServiceImpl(
     ZIO.succeed()
   }
 
-  private def processOne(input: String): ZIO[Any, Throwable, (Boolean, String)] = {
+  private def processOne(input: String): ZIO[Any, Throwable, (Boolean, String, Long)] = {
     val output = new StringBuilder
     val error  = new StringBuilder
     for {
       _ <- ZIO.succeed(Process("pip3 install -r requirements.txt").run().exitValue())
+      start = Timer.currentTimeMillis()
       process <- ZIO.succeed(
         (Process(s"""echo "$input"""") #| Process(
           "timeout 300 python3 run.py"
@@ -72,7 +72,7 @@ case class GradingServiceImpl(
           ProcessLogger(line => output.append(line), line => error.append(line).append("\n"))
         )
       )
-    } yield (process.exitValue() == 0, output.toString() + error.toString())
+    } yield (process.exitValue() == 0, output.toString() + error.toString(), start)
   }
 }
 
