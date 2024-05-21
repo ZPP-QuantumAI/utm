@@ -51,7 +51,7 @@ case class GradingServiceImpl(
 
   private def decodeZip(file: FileDto): Task[Path] = {
     val zippedFile      = File.createTempFile(file._id, ".zip")
-    val outputDirectory = Files.createTempDirectory(s"solution-${file._id}")
+    val outputDirectory = Files.createTempDirectory("")
     val fos             = new FileOutputStream(zippedFile)
     fos.write(file.data.array())
     fos.close()
@@ -65,7 +65,6 @@ case class GradingServiceImpl(
     val output = new StringBuilder
     val error  = new StringBuilder
     for {
-      _ <- ZIO.succeed(Process(s"cd $solutionPath").run().exitValue())
       _ <- ZIO.succeed(Process("pip3 install -r requirements.txt").run().exitValue())
       process <- ZIO.succeed(
         (Process(s"""echo "$input"""") #| Process(
