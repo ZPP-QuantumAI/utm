@@ -12,6 +12,7 @@ import java.io.{File, FileOutputStream}
 import java.lang.{System => Timer}
 import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
+import scala.reflect.io.Directory
 import scala.sys.process._
 
 trait GradingService {
@@ -26,15 +27,17 @@ case class GradingServiceImpl(
   override def gradeRequest(gradeRequest: GradeRequest): ZIO[Producer, Throwable, Unit] = {
     for {
       file <- fileRepositoryService.readFile(gradeRequest.solutionId)
+      _    <- ZIO.logInfo(s"read file from repository with id ${gradeRequest.solutionId}")
       _    <- decodeZip(file)
+      _    <- ZIO.logInfo(s"Decoded zip to repository")
       graphMap = gradeRequest.requests.map(sgr => (sgr.graphId, sgr.gradeId)).toMap
       graphs <- graphRepositoryService.readGraphs(graphMap.keySet.toList)
-      _      <- ZIO.logInfo(s"file: ${file._id}, graphs: ${graphs.head.name}")
       _ <- ZIO.foreachDiscard(graphs) { graph =>
         val gradeID = graphMap(graph._id)
         val gradeZio = for {
           _   <- ZIO.logInfo(s"Running the solution for graph $graph in $gradeID")
-          res <- processOne(toInput(graph))
+          res <- processOne(file._id, toInput(graph))
+          _   <- ZIO.logInfo(s"Finished grading the solution for graph $graph in $gradeID")
           end <- Clock.currentTime(TimeUnit.MILLISECONDS)
           _   <- producerService.produce(GradeResponse(gradeID, res._1, res._2, end - res._3))
         } yield ()
@@ -49,25 +52,26 @@ case class GradingServiceImpl(
   }
 
   private def decodeZip(file: FileDto): Task[Int] = {
-    val zippedFile = File.createTempFile(file._id, ".zip")
-    val fos        = new FileOutputStream(zippedFile)
+    val zippedFile      = File.createTempFile(file._id, ".zip")
+    val outputDirectory = Files.createTempDirectory(s"solution-${file._id}")
+    val fos             = new FileOutputStream(zippedFile)
     fos.write(file.data.array())
     fos.close()
 
-    val exitValue = Seq("unzip", zippedFile.getPath).run().exitValue()
+    val exitValue = Process(s"unzip ${zippedFile.getPath} -d ${outputDirectory.toString}").run().exitValue()
 
     ZIO.succeed(exitValue)
   }
 
-  private def processOne(input: String): ZIO[Any, Throwable, (Boolean, String, Long)] = {
+  private def processOne(fileId: String, input: String): ZIO[Any, Throwable, (Boolean, String, Long)] = {
     val output = new StringBuilder
     val error  = new StringBuilder
     for {
-      _ <- ZIO.succeed(Process("pip3 install -r requirements.txt").run().exitValue())
+      _ <- ZIO.succeed(Process(s"pip3 install -r $fileId/requirements.txt").run().exitValue())
       start = Timer.currentTimeMillis()
       process <- ZIO.succeed(
         (Process(s"""echo "$input"""") #| Process(
-          "timeout 300 python3 run.py"
+          s"timeout 300 python3 $fileId/run.py"
         )).run(
           ProcessLogger(line => output.append(line), line => error.append(line).append("\n"))
         )
