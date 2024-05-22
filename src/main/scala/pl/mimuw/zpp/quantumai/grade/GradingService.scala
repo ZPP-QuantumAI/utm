@@ -48,15 +48,15 @@ case class GradingServiceImpl(
     } yield ()
   }
 
-  private def decodeZip(file: FileDto): Task[Unit] = {
+  private def decodeZip(file: FileDto): Task[Int] = {
     val zippedFile = File.createTempFile(file._id, ".zip")
     val fos        = new FileOutputStream(zippedFile)
     fos.write(file.data.array())
     fos.close()
 
-    Seq("unzip", zippedFile.getPath).run()
+    val exitValue = Seq("unzip", zippedFile.getPath).run().exitValue()
 
-    ZIO.succeed()
+    ZIO.succeed(exitValue)
   }
 
   private def processOne(input: String): ZIO[Any, Throwable, (Boolean, String, Long)] = {
