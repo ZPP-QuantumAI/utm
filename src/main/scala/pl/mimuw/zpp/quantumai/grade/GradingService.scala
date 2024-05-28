@@ -39,19 +39,18 @@ case class GradingServiceImpl(
           res <- processOne(toInput(graph))
           _   <- ZIO.logInfo(s"Finished grading the solution for graph $graph in $gradeID")
           end <- Clock.currentTime(TimeUnit.MILLISECONDS)
-          _   <- clearRoot()
           _   <- producerService.produce(GradeResponse(gradeID, res._1, res._2, end - res._3))
         } yield ()
 
         gradeZio.catchAll { e =>
           for {
-            _ <- clearRoot()
             _ <- producerService.produce(
               GradeResponse(gradeID, success = false, e.getMessage, 0L)
             )
           } yield ()
         }
       }
+      _ <- clearRoot()
     } yield ()
   }
 
