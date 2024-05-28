@@ -39,16 +39,25 @@ case class GradingServiceImpl(
           res <- processOne(toInput(graph))
           _   <- ZIO.logInfo(s"Finished grading the solution for graph $graph in $gradeID")
           end <- Clock.currentTime(TimeUnit.MILLISECONDS)
+          _   <- clearRoot()
           _   <- producerService.produce(GradeResponse(gradeID, res._1, res._2, end - res._3))
         } yield ()
 
         gradeZio.catchAll { e =>
-          producerService.produce(
-            GradeResponse(gradeID, success = false, e.getMessage, 0L)
-          )
+          for {
+            _ <- clearRoot()
+            _ <- producerService.produce(
+              GradeResponse(gradeID, success = false, e.getMessage, 0L)
+            )
+          } yield ()
         }
       }
     } yield ()
+  }
+
+  private def clearRoot(): Task[Unit] = {
+    Process("find . -mindepth 1 ! -name 'your-app.jar' -exec rm -rf {} +").run().exitValue()
+    ZIO.succeed()
   }
 
   private def decodeZip(file: FileDto): Task[Unit] = {
@@ -57,7 +66,7 @@ case class GradingServiceImpl(
     fos.write(file.data.array())
     fos.close()
 
-    val exitValue = Process(s"unzip -o ${zippedFile.getPath}").run().exitValue()
+    Process(s"unzip -o ${zippedFile.getPath}").run().exitValue()
 
     ZIO.succeed()
   }
